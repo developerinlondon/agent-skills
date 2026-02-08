@@ -46,7 +46,9 @@ Before running ANY kubectl command, you MUST discover the environment. Follow th
 # Expected format:
 ssh_command: "MISE_ENV=test mise run server:ssh"   # How to reach the cluster (omit if local kubectl works)
 kargo_namespace: "kargo-my-project-test"            # Kargo project namespace
+kargo_controller_namespace: "kargo"                  # Where Kargo controller runs (may differ from default)
 argocd_namespace: "infra"                           # ArgoCD apps namespace
+argocd_controller_namespace: "argocd"                # Where ArgoCD controller runs (may differ from default)
 monitoring_namespace: "monitoring"                   # Monitoring namespace
 app_namespace: "my-app-test"                         # Application namespace
 domain: "example.com"                                # Cluster domain
@@ -91,14 +93,16 @@ I need your cluster details to proceed:
 Once discovered, use these throughout ALL commands:
 
 ```
-${SSH_CMD}         = SSH/proxy prefix (empty if direct kubectl works)
-${KARGO_NS}        = Kargo project namespace
-${ARGOCD_NS}       = ArgoCD applications namespace
-${MONITORING_NS}   = Monitoring namespace
-${APP_NS}          = Application namespace
-${DOMAIN}          = Cluster domain
-${KARGO_PROJECT}   = Kargo project name
-${WAREHOUSE}       = Kargo warehouse name
+${SSH_CMD}              = SSH/proxy prefix (empty if direct kubectl works)
+${KARGO_NS}            = Kargo project namespace (stages, promotions, freight)
+${KARGO_CONTROLLER_NS} = Kargo controller namespace (defaults to "kargo", may differ)
+${ARGOCD_NS}           = ArgoCD applications namespace
+${ARGOCD_CONTROLLER_NS} = ArgoCD controller namespace (defaults to "argocd", may differ)
+${MONITORING_NS}       = Monitoring namespace
+${APP_NS}              = Application namespace
+${DOMAIN}              = Cluster domain
+${KARGO_PROJECT}       = Kargo project name
+${WAREHOUSE}           = Kargo warehouse name
 ```
 
 **NEVER hardcode namespace names or domains in commands.**
@@ -122,8 +126,8 @@ ${SSH_CMD} kubectl get promotions -n ${KARGO_NS} --sort-by=.metadata.creationTim
 ${SSH_CMD} kubectl get applications -n ${ARGOCD_NS}
 
 # Group 3: Controller health
-${SSH_CMD} kubectl get pods -n kargo
-${SSH_CMD} kubectl get pods -n argocd -l app.kubernetes.io/name=argocd-repo-server
+${SSH_CMD} kubectl get pods -n ${KARGO_CONTROLLER_NS} -l app.kubernetes.io/name=kargo
+${SSH_CMD} kubectl get pods -n ${ARGOCD_CONTROLLER_NS} -l app.kubernetes.io/name=argocd-repo-server
 
 # Group 4: Recent events
 ${SSH_CMD} kubectl get events -n ${KARGO_NS} --sort-by=.lastTimestamp --field-selector=type!=Normal
@@ -209,7 +213,7 @@ Stage stuck?
 |
 +- 3. Check Kargo controller logs
 |  |
-|  +-- kubectl logs -n kargo deploy/kargo-controller --tail=200 | grep <stage-name>
+|  +-- kubectl logs -n ${KARGO_CONTROLLER_NS} deploy/kargo-controller --tail=200 | grep <stage-name>
 |     |
 |     +- "Promotion already exists for Freight"
 |     |  +-- Delete old errored promotions for that freight:
@@ -763,10 +767,10 @@ ${SSH_CMD} kubectl get freight -n ${KARGO_NS} \
 ${SSH_CMD} kubectl get applications -n ${ARGOCD_NS}
 
 # Kargo controller logs
-${SSH_CMD} kubectl logs -n kargo deploy/kargo-controller --tail=100
+${SSH_CMD} kubectl logs -n ${KARGO_CONTROLLER_NS} deploy/kargo-controller --tail=100
 
 # ArgoCD repo-server logs (common failure point)
-${SSH_CMD} kubectl logs -n argocd deploy/argocd-repo-server --tail=50
+${SSH_CMD} kubectl logs -n ${ARGOCD_CONTROLLER_NS} deploy/argocd-repo-server --tail=50
 
 # AnalysisRuns (verification results)
 ${SSH_CMD} kubectl get analysisruns -n ${KARGO_NS} \
@@ -790,8 +794,8 @@ These come from ENVIRONMENT DISCOVERY. Common defaults:
 
 | Variable           | Common Default   | Contains                                   |
 | ------------------ | ---------------- | ------------------------------------------ |
-| `argocd`           | `argocd`         | ArgoCD server, ApplicationSets             |
-| `kargo`            | `kargo`          | Kargo controller, API                      |
+| `${ARGOCD_CONTROLLER_NS}` | `argocd`  | ArgoCD server, ApplicationSets             |
+| `${KARGO_CONTROLLER_NS}`  | `kargo`  | Kargo controller, API                      |
 | `${KARGO_NS}`      | varies           | Kargo Project, Stages, Promotions, Freight |
 | `${ARGOCD_NS}`     | `infra`          | ArgoCD Applications                        |
 | `${MONITORING_NS}` | `monitoring`     | Prometheus, Grafana, Loki, Alloy           |
